@@ -7,7 +7,8 @@ import re
 
 FNULL = open(os.devnull, 'w')
 
-decks = ['path/Sketchy_PATH', 'micro/Sketchy__Sketchy_Micro/', 'pharm/Sketchy__Sketchy_Pharm']
+decks = ['']
+
 outdir = 'build'
 p = Path('/home/kde/repos/sketchy')
 
@@ -17,16 +18,18 @@ def build_deck(deck: str):
 
     for note in file_json["notes"]:
         try: 
-            tag = next(tag for tag in note['tags'] if "#Sketchy" in tag and "::" in tag)
+            tag = next(tag for tag in note['tags'] if "#" in tag and "::" in tag)
         except:
             print("no tag")
             return
-        path = p / outdir / (tag.replace("::", "/").replace(" ", "_") + '.tex')
+        path = p / outdir / (tag.replace("::", "/").replace(" ", "_").replace("&","and") + '.tex')
         fields  = [field for field in note['fields'] if 'src=' in field]
         fields.insert(0, fields[-1])
         fields.pop(-1)
         images_2d = list(map(lambda field: re.findall(r'img src="([^"].*?)"', field), fields))
         images_flat = [j for sub in images_2d for j in sub if '%' not in j and '.gif' not in j] 
+        images_flat.insert(0, images_flat[1])
+        images_flat.pop(2)
         printable = set(string.printable)
         # images_flat = list(map(lambda word: ''.join([x for x in word if x in printable]), images_flat))
 
@@ -36,8 +39,7 @@ def build_deck(deck: str):
         nl = '\n'
         output = f"""\\documentclass{{article}}
 \\usepackage{{graphicx}}
-% \\graphicspath{{/home/default/repos/sketchy/micro/Sketchy__Sketchy_Micro/media/}} 
-\\title{{Sketchy Item}}
+\\title{{Card Item}}
 \\usepackage[margin=0.25in]{{geometry}}
 
 \\begin{{document}}
@@ -52,31 +54,19 @@ def build_deck(deck: str):
 
         print(f'Finished note {path}')
 
+def delete():
+    subprocess.run(["rm", "-rf", "build"])
+
 def build():
     for path in (p / 'build').rglob('*.tex'):
         os.chdir(path.resolve().parent)
         print(f"Building {path.name}")
-        subprocess.run(['pdflatex', pacobth.name, '-interaction=nonstopmode'])
-        globs = map(lambda x: f"{path.name[:-4]}*{x}",['.aux', '.dvi', '.fdb_latexmk', '.fls', '.log', '.tex'])
+        subprocess.run(['pdflatex', path.name, '-interaction=nonstopmode'])
+        globs = map(lambda x: f"{path.name[:-4]}{x}",['.aux', '.dvi', '.fdb_latexmk', '.fls', '.log', '.tex'])
         for glob in globs:
             for path in (path.resolve().parent).rglob(f'*{glob}'):
                 path.unlink()
-
-def clean():
-    print("Cleaning files")
-    globs = ['.aux', '.dvi', '.fdb_latexmk', '.fls', '.log', '.tex']
-    for glob in globs:
-        for path in (p / 'build').rglob(f'*{glob}'):
-            path.unlink()
     
-def ocr():
-    print("Cleaning files")
-    globs = ['.pdf']
-    for glob in globs:
-        for path in (p / 'build').rglob(f'*{glob}'):
-            os.chdir(path.resolve().parent)
-            subprocess.run(['pdfsandwich', path.name])
-
 def optimize():
     globs = ['.pdf']
     for glob in globs:
@@ -89,11 +79,10 @@ def optimize():
             (path.resolve().parent / 'small.pdf').rename(path.resolve())
 
 if __name__ == "__main__":
-    # for deck in decks:
-    #     build_deck(deck)
-    # build()
-    # clean()
-    # ocr()
+    delete()
+    for deck in decks:
+        build_deck(deck)
+    build()
     optimize()
 print("done")
 
